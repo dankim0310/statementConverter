@@ -6,10 +6,51 @@
     <title>File Upload</title>
 </head>
 <body>
-    <h1>Upload your bank statement</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".xlsx, .xls">
-        <button type="submit">Upload</button>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <label for="bankType">은행 타입:</label>
+        <select id="bankType" name="bankType">
+            <option value="농협개인">농협개인</option>
+            <option value="농협기업">농협기업</option>
+        </select>
+        <br><br>
+        <label for="file">파일 선택:</label>
+        <input type="file" id="file" name="file" required>
+        <br><br>
+        <button type="submit">업로드</button>
     </form>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            formData.append('file', document.getElementById('file').files[0]);
+            formData.append('bankType', document.getElementById('bankType').value);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'standardized.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                alert(error.message);
+            });
+        });
+    </script>
 </body>
 </html>
