@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
-const fs = require('fs'); // 파일 시스템 모듈을 추가합니다.
+const fs = require('fs');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
@@ -135,6 +135,7 @@ app.post('/upload', upload.single('file'), checkHeaders, (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log('Server running on port 3000');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
