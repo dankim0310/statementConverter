@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const app = express();
@@ -70,7 +71,7 @@ function checkHeaders(req, res, next) {
     }
 }
 
-app.post('/upload', upload.single('file'), checkHeaders, (req, res) => {
+app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
     const file = req.file;
     const bankType = req.body.bankType;
 
@@ -117,12 +118,34 @@ app.post('/upload', upload.single('file'), checkHeaders, (req, res) => {
         standardizedData.sort((a, b) => new Date(a.날짜) - new Date(b.날짜));
 
         // 새로운 엑셀 파일을 만듭니다.
-        const newWorkbook = xlsx.utils.book_new();
-        const newSheet = xlsx.utils.json_to_sheet(standardizedData, { header: ["날짜", "상세내역", "거래처", "항목분류", "수입", "지출"] });
-        xlsx.utils.book_append_sheet(newWorkbook, newSheet, 'StandardizedData');
+        const newWorkbook = new ExcelJS.Workbook();
+        const newSheet = newWorkbook.addWorksheet('StandardizedData');
+
+        // 열 헤더 추가
+        newSheet.columns = [
+            { header: '날짜', key: '날짜', width: 15 },
+            { header: '상세내역', key: '상세내역', width: 30 },
+            { header: '거래처', key: '거래처', width: 15 },
+            { header: '항목분류', key: '항목분류', width: 15 },
+            { header: '수입', key: '수입', width: 15 },
+            { header: '지출', key: '지출', width: 15 }
+        ];
+
+        // 데이터 추가
+        standardizedData.forEach(row => newSheet.addRow(row));
+
+        // 스타일 설정
+        newSheet.eachRow({ includeEmpty: false }, row => {
+            row.font = { size: 11 };
+            row.eachCell({ includeEmpty: false }, cell => {
+                if (cell.address[0] === 'A') { // 날짜 열
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
 
         const outputPath = path.join(__dirname, 'uploads', 'standardized.xlsx');
-        xlsx.writeFile(newWorkbook, outputPath);
+        await newWorkbook.xlsx.writeFile(outputPath);
 
         res.download(outputPath, 'standardized.xlsx', () => {
             fs.unlinkSync(file.path); // 원본 업로드 파일을 삭제합니다.
