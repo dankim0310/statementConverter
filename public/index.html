@@ -57,9 +57,10 @@
         .message {
             margin-top: 20px;
             font-size: 16px;
+            color: black;
         }
         .file-name {
-            margin-top: 10px; /* 파일 선택 버튼 밑에 여백 추가 */
+            margin-top: 25px; /* 파일 선택 버튼 밑에 여백 추가 */
         }
         .upload-button {
             margin-top: 20px; /* 드롭다운 밑에 여백 추가 */
@@ -98,7 +99,12 @@
                     method: 'POST',
                     body: formData,
                 });
-                if (!response.ok) throw new Error('업로드 실패');
+                
+                if (!response.ok) {
+                    const result = await response.json();
+                    throw new Error(result.error || '업로드 실패');
+                }
+
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');

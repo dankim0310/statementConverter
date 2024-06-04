@@ -33,7 +33,7 @@ function checkHeaders(req, res, next) {
     const bankType = req.body.bankType;
 
     if (!file) {
-        return res.status(400).send('파일이 제공되지 않았습니다.');
+        return res.status(400).json({ error: '파일이 제공되지 않았습니다.' });
     }
 
     try {
@@ -52,14 +52,14 @@ function checkHeaders(req, res, next) {
             expectedHeaders = ['구분', '거래일자', '출금금액(원)', '입금금액(원)', '거래 후 잔액(원)', '거래내용', '거래기록사항', '거래점', '거래시간', '이체메모'];
         } else {
             fs.unlinkSync(file.path); // 파일을 삭제합니다.
-            return res.status(400).send('지원되지 않는 은행 유형입니다.');
+            return res.status(400).json({ error: '지원되지 않는 은행 유형입니다.' });
         }
 
         // 헤더 일치 여부 확인
         const isHeaderMatching = expectedHeaders.every(header => headers.includes(header));
         if (!isHeaderMatching) {
             fs.unlinkSync(file.path); // 파일을 삭제합니다.
-            return res.status(400).send('업로드한 파일이 해당 은행의 양식과 일치하지 않습니다. 다시 확인해 주십시오.');
+            return res.status(400).json({ error: '업로드한 파일이 해당 은행의 양식과 일치하지 않습니다. 다시 확인해 주십시오.' });
         }
 
         // 미들웨어 통과 후 다음 단계로 이동
@@ -67,7 +67,7 @@ function checkHeaders(req, res, next) {
     } catch (error) {
         console.error('Error processing file:', error);
         fs.unlinkSync(file.path); // 파일을 삭제합니다.
-        return res.status(500).send('파일 처리 중 오류가 발생했습니다.');
+        return res.status(500).json({ error: '파일 처리 중 오류가 발생했습니다.' });
     }
 }
 
@@ -154,7 +154,7 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
     } catch (error) {
         console.error('Error processing file:', error);
         fs.unlinkSync(file.path); // 파일을 삭제합니다.
-        res.status(500).send('파일 처리 중 오류가 발생했습니다.');
+        res.status(500).json({ error: '파일 처리 중 오류가 발생했습니다.' });
     }
 });
 
