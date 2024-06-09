@@ -9,10 +9,16 @@
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
         }
         .container {
             text-align: center;
@@ -20,6 +26,15 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .notice {
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #333;
+            text-align: left;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
         }
         label, button, .file-name, .bank-title, select {
             font-size: 16px;
@@ -32,6 +47,9 @@
             transition: background-color 0.3s;
             background-color: #87CEFA; /* 연한 파란색 버튼 */
             color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         label:hover, button:hover {
             background-color: #00BFFF;
@@ -65,10 +83,21 @@
         .upload-button {
             margin-top: 20px; /* 드롭다운 밑에 여백 추가 */
         }
+        .footer-notice {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #333;
+            text-align: left;
+            max-width: 400px;
+        }
     </style>
 </head>
 <body>
+    <h1>은행 양식 변환기</h1> <!-- 제목 추가 -->
     <div class="container">
+        <div class="notice">
+            <p>※ 은행으로부터 다운받은 입출금내역 파일을 수정하지 말고 받은 그대로 업로드 해주세요.</p>
+        </div>
         <form id="uploadForm">
             <label for="fileInput">파일 선택</label>
             <input type="file" id="fileInput" name="file">
@@ -76,13 +105,22 @@
             <div class="form-group">
                 <div class="bank-title">은행:</div>
                 <select name="bankType" id="bankType">
-                    <option value="농협개인">농협개인</option>
-                    <option value="농협기업">농협기업</option>
+                    <option value="농협은행">농협은행</option>
+                    <option value="국민은행">국민은행</option>
+                    <option value="기업은행">기업은행</option>
+                    <option value="우리은행">우리은행</option>
+                    <option value="부산은행">부산은행</option>
+                    <option value="하나은행">하나은행</option>
+                    <option value="경남은행">경남은행</option>
+                    <option value="우체국은행">우체국은행</option>
                 </select>
             </div>
             <button type="submit" class="upload-button">업로드</button>
             <div id="message" class="message"></div>
         </form>
+    </div>
+    <div class="footer-notice">
+        <p>해당 은행이 목록에 없을 경우, hq.korea@meditationcenter.net으로 입출금 내역 파일과 은행 이름을 보내주시면, 빠른시일 내에 해당 은행을 추가해드리겠습니다.</p>
     </div>
 
     <script>
