@@ -116,6 +116,16 @@ const bankHeaders = {
             수입: '입금액',
             거래처: '내역'
         }
+    },
+    'IM은행': {
+        headerRow: 2, //3번째 행
+        expectedHeaders: ['NO','거래일시', '거래종류','출금금액','입금금액','거래후잔액','비고','예금주명','메모','거래점'],
+        mappings: {
+            날짜: '거래일시',
+            지출: '출금금액',
+            수입: '입금금액',
+            거래처: '비고'
+        }
     }
 };
 
@@ -133,14 +143,23 @@ function formatDate(dateString) {
 }
 
 function parseDate(dateString) {
+    // IM은행 날짜 형식 처리
+    const imBankMatch = dateString.match(/(\d{4})-(\d{2})-(\d{2}) \[(\d{2}):(\d{2}):(\d{2})\]/);
+    if (imBankMatch) {
+        const [_, year, month, day, hour, minute, second] = imBankMatch;
+        return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
+    }
+
     // 우체국은행 날짜 형식 처리
-    const match = dateString.match(/(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}):(\d{2})(\d{2})/);
-    if (match) {
-        const [_, year, month, day, hour, minute, second, millisecond] = match;
+    const postBankMatch = dateString.match(/(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}):(\d{2})(\d{2})/);
+    if (postBankMatch) {
+        const [_, year, month, day, hour, minute, second, millisecond] = postBankMatch;
         return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}.${millisecond}Z`);
     }
+
     return new Date(dateString);
 }
+
 
 
 function isThreeKoreanChars(text) {
@@ -248,7 +267,8 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                     }
             
                     // 여기에서 parseDate 함수를 사용합니다
-                    const 날짜 = (bankType === '우체국은행') ? parseDate(row[headers.indexOf(bankInfo.mappings['날짜'])]) : new Date(row[headers.indexOf(bankInfo.mappings['날짜'])]);
+                    const 날짜 = (bankType === '우체국은행' || bankType === 'IM은행') ? parseDate(row[headers.indexOf(bankInfo.mappings['날짜'])]) : new Date(row[headers.indexOf(bankInfo.mappings['날짜'])]);
+
                     if (isNaN(날짜)) {
                         console.log(`Invalid date at row ${index}:`, row);
                         return null; // 날짜 값이 없는 행은 제외
