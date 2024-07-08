@@ -29,6 +29,16 @@ const bankHeaders = {
                 수입: '맡기신금액',
                 거래처: '기록사항'
             }
+        },
+        {
+            headerRow: 7,
+            expectedHeaders: ['순번', '거래일시', '출금금액', '입금금액', '거래후잔액', '거래내용', '거래기록사항', '거래점', '거래메모'],
+            mappings: {
+                날짜: '거래일시',
+                지출: '출금금액',
+                수입: '입금금액',
+                거래처: '거래기록사항'
+            }
         }
     ],
     '국민은행': [
@@ -46,6 +56,17 @@ const bankHeaders = {
         {
             headerRow: 0,
             expectedHeaders: ['거래일시', '보낸분/받는분', '출금액(원)', '입금액(원)', '잔액(원)', '내 통장 표시', '적요', '처리점', '구분'],
+            mappings: {
+                날짜: '거래일시',
+                지출: '출금액(원)',
+                수입: '입금액(원)',
+                거래처: '보낸분/받는분',
+                상세내역: '내 통장 표시'
+            }
+        },
+        {
+            headerRow: 4,
+            expectedHeaders: ['거래일시', '적요','보낸분/받는분', '송금메모','출금액', '입금액', '잔액', '거래점','구분'],
             mappings: {
                 날짜: '거래일시',
                 지출: '출금액(원)',
@@ -229,6 +250,26 @@ function checkHeaders(req, res, next) {
             console.log('기대하는 헤더:', expectedHeaders);
 
             const isHeaderMatching = expectedHeaders.every(header => headers.includes(header));
+            console.log('헤더 일치 여부:', isHeaderMatching);
+
+            if (!isHeaderMatching) {
+                console.log('헤더 문자열 비교:', headers.join('|'), '===', expectedHeaders.join('|'));
+                console.log('헤더 길이 비교:', headers.length, '===', expectedHeaders.length);
+                headers.forEach((header, index) => {
+                    console.log(`Index ${index}:`, header, '===', expectedHeaders[index]);
+                });
+                // 왜 false인지 상세히 설명하는 로그 추가
+                if (headers.length !== expectedHeaders.length) {
+                    console.log('헤더 길이가 다릅니다. headers.length:', headers.length, 'expectedHeaders.length:', expectedHeaders.length);
+                } else {
+                    expectedHeaders.forEach((header, index) => {
+                        if (header !== headers[index]) {
+                            console.log(`헤더 불일치: expected "${header}" but got "${headers[index]}" at index ${index}`);
+                        }
+                    });
+                }
+            }
+
             if (isHeaderMatching) {
                 bankInfo = info;
                 break;
@@ -248,6 +289,10 @@ function checkHeaders(req, res, next) {
         return res.status(500).json({ error: '파일 처리 중 오류가 발생했습니다.' });
     }
 }
+
+
+
+
 
 app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
     const file = req.file;
