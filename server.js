@@ -4,7 +4,7 @@ const xlsx = require('xlsx');
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
-const iconv = require('iconv-lite'); // 인코딩 변환을 위한 모듈 추가
+const { JSDOM } = require('jsdom');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
@@ -69,10 +69,9 @@ const bankHeaders = {
             expectedHeaders: ['거래일시', '적요','보낸분/받는분', '송금메모','출금액', '입금액', '잔액', '거래점','구분'],
             mappings: {
                 날짜: '거래일시',
-                지출: '출금액(원)',
-                수입: '입금액(원)',
-                거래처: '보낸분/받는분',
-                상세내역: '내 통장 표시'
+                지출: '출금액',
+                수입: '입금액',
+                거래처: '보낸분/받는분'
             }
         }
     ],
@@ -172,8 +171,55 @@ const bankHeaders = {
             상세내역: '메모'
         }
     }
-
 };
+
+
+// HTML 파일을 Excel로 변환하는 함수
+async function convertHtmlToExcel(htmlContent, outputPath) {
+    const dom = new JSDOM(htmlContent);
+    const document = dom.window.document;
+    const table = document.querySelector('table');
+
+    if (!table) {
+        throw new Error('HTML 파일에서 테이블을 찾을 수 없습니다.');
+    }
+
+    const newWorkbook = new ExcelJS.Workbook();
+    const newSheet = newWorkbook.addWorksheet('Sheet1');
+
+    const rows = Array.from(table.querySelectorAll('tr'));
+    rows.forEach((row) => {
+        const cells = Array.from(row.querySelectorAll('td, th'));
+        const rowData = cells.map(cell => cell.textContent.trim());
+        newSheet.addRow(rowData);
+    });
+
+    await newWorkbook.xlsx.writeFile(outputPath);
+}
+
+// 파일이 HTML 형식인지 확인하는 함수
+function isHtmlFile(filePath) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return content.includes('<html') || content.includes('<table');
+}
+
+// 파일을 읽고 첫 10행을 출력하는 함수
+async function readExcelFile(filePath) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    const sheet = workbook.getWorksheet(1);
+
+    const data = [];
+    sheet.eachRow((row, rowNumber) => {
+        if (rowNumber <= 10) {
+            data.push(row.values.filter(cell => cell !== null && cell !== ''));
+        }
+    });
+
+    console.log('파일 첫 10개 행:', data);
+}
+
+// bankHeaders 설정은 기존과 동일하게 유지
 
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
@@ -189,14 +235,12 @@ function formatDate(dateString) {
 }
 
 function parseDate(dateString) {
-    // IM은행 날짜 형식 처리
     const imBankMatch = dateString.match(/(\d{4})-(\d{2})-(\d{2}) \[(\d{2}):(\d{2}):(\d{2})\]/);
     if (imBankMatch) {
         const [_, year, month, day, hour, minute, second] = imBankMatch;
         return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}Z`);
     }
 
-    // 우체국은행 날짜 형식 처리
     const postBankMatch = dateString.match(/(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}):(\d{2})(\d{2})/);
     if (postBankMatch) {
         const [_, year, month, day, hour, minute, second, millisecond] = postBankMatch;
@@ -206,14 +250,12 @@ function parseDate(dateString) {
     return new Date(dateString);
 }
 
-
-
 function isThreeKoreanChars(text) {
     const koreanCharRegex = /^[가-힣]{3}$/;
     return koreanCharRegex.test(text);
 }
 
-function checkHeaders(req, res, next) {
+async function checkHeaders(req, res, next) {
     const file = req.file;
     const bankType = req.body.bankType;
 
@@ -222,7 +264,14 @@ function checkHeaders(req, res, next) {
     }
 
     try {
-        const workbook = xlsx.readFile(file.path);
+        if (isHtmlFile(file.path)) {
+            const htmlContent = fs.readFileSync(file.path, 'utf-8');
+            const tempExcelPath = path.join(__dirname, 'uploads', 'temp.xlsx');
+            await convertHtmlToExcel(htmlContent, tempExcelPath);
+            req.file.path = tempExcelPath;
+        }
+
+        const workbook = xlsx.readFile(req.file.path);
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
@@ -235,7 +284,6 @@ function checkHeaders(req, res, next) {
             return res.status(400).json({ error: '지원되지 않는 은행 유형입니다.' });
         }
 
-        // bankInfos가 배열이 아니면 배열로 만듭니다.
         if (!Array.isArray(bankInfos)) {
             bankInfos = [bankInfos];
         }
@@ -258,7 +306,6 @@ function checkHeaders(req, res, next) {
                 headers.forEach((header, index) => {
                     console.log(`Index ${index}:`, header, '===', expectedHeaders[index]);
                 });
-                // 왜 false인지 상세히 설명하는 로그 추가
                 if (headers.length !== expectedHeaders.length) {
                     console.log('헤더 길이가 다릅니다. headers.length:', headers.length, 'expectedHeaders.length:', expectedHeaders.length);
                 } else {
@@ -290,25 +337,13 @@ function checkHeaders(req, res, next) {
     }
 }
 
-
-
-
-
 app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
     const file = req.file;
     const bankType = req.body.bankType;
     const bankInfo = req.bankInfo;
 
     try {
-        const buffer = fs.readFileSync(file.path);
-        let workbook;
-        if (bankType === '국민은행' && bankInfo.headerRow === 0) {
-            const decodedBuffer = iconv.decode(buffer, 'euc-kr'); // euc-kr 인코딩으로 변환
-            workbook = xlsx.read(decodedBuffer, { type: 'string' });
-        } else {
-            workbook = xlsx.read(buffer, { type: 'buffer' });
-        }
-
+        const workbook = xlsx.readFile(file.path);
         const sheetNames = workbook.SheetNames;
         const newWorkbook = new ExcelJS.Workbook();
 
@@ -336,7 +371,6 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                         거래처 = 거래처;
                     }
             
-                    // 여기에서 parseDate 함수를 사용합니다
                     const 날짜 = (bankType === '우체국은행' || bankType === 'IM은행') ? parseDate(row[headers.indexOf(bankInfo.mappings['날짜'])]) : new Date(row[headers.indexOf(bankInfo.mappings['날짜'])]);
 
                     if (isNaN(날짜)) {
@@ -366,9 +400,7 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                 }
             }).filter(row => row !== null);
             
-            
             console.log('standardizedData:', standardizedData);
-            
 
             standardizedData.sort((a, b) => a.원본날짜 - b.원본날짜);
 
