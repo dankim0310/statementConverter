@@ -75,7 +75,8 @@ const bankHeaders = {
             }
         }
     ],
-    '기업은행': {
+    '기업은행': [
+        {
         headerRow: 5,
         expectedHeaders: ['No', '거래일시', '출금', '입금', '거래후 잔액', '거래내용', '송금메시지', '상대계좌번호', '상대은행', '거래구분', '수표어음금액', 'CMS코드', '상대계좌예금주명'],
         mappings: {
@@ -84,8 +85,21 @@ const bankHeaders = {
             수입: '입금',
             거래처: '상대계좌예금주명',
             상세내역: '거래내용'
-        }
-    },
+            }
+       },
+       {
+        headerRow: 2,
+        expectedHeaders: [' ', '거래일시', '출금', '입금', '거래후 잔액', '거래내용', '상대계좌번호', '상대은행', '메모','거래구분', '수표어음금액', 'CMS코드', '상대계좌예금주명'],
+        mappings: {
+            날짜: '거래일시',
+            지출: '출금',
+            수입: '입금',
+            거래처: '상대계좌예금주명',
+            상세내역: '거래내용'
+            }
+       }
+
+    ],
     '우리은행': {
         headerRow: 3,
         expectedHeaders: ['No.', '거래일시', '기재내용', '지급(원)', '입금(원)', '거래후 잔액(원)'],
@@ -170,7 +184,18 @@ const bankHeaders = {
             거래처: '내용',
             상세내역: '메모'
         }
+    },
+    '새마을금고': {
+        headerRow: 12, //13번째 행
+        expectedHeaders: ['거래일시','내용','출금','입금','거래후 잔액','적요','비고'],
+        mappings: {
+            날짜: '거래일시',
+            지출: '출금',
+            수입: '입금',
+            거래처: '내용'
+        }
     }
+
 };
 
 
@@ -361,21 +386,18 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
             const standardizedData = mainData.map((row, index) => {
                 try {
                     let 거래처 = row[headers.indexOf(bankInfo.mappings['거래처'])];
-                    let 상세내역 = row[headers.indexOf(bankInfo.mappings['상세내역'])] || ''; // 상세내역에 매핑된 값
+                    let 상세내역 = row[headers.indexOf(bankInfo.mappings['상세내역'])] || ''; 
             
                     if (!isThreeKoreanChars(거래처) && !상세내역) {
                         상세내역 = 거래처;
                         거래처 = '';
-                    } else if (!isThreeKoreanChars(거래처) && 상세내역) {
-                        상세내역 = 상세내역;
-                        거래처 = 거래처;
                     }
             
                     const 날짜 = (bankType === '우체국은행' || bankType === 'IM은행') ? parseDate(row[headers.indexOf(bankInfo.mappings['날짜'])]) : new Date(row[headers.indexOf(bankInfo.mappings['날짜'])]);
-
+            
                     if (isNaN(날짜)) {
                         console.log(`Invalid date at row ${index}:`, row);
-                        return null; // 날짜 값이 없는 행은 제외
+                        return null; 
                     }
                     const formattedDate = formatDate(날짜.toISOString());
                     const 수입 = row[headers.indexOf(bankInfo.mappings['수입'])];
@@ -398,12 +420,12 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                     console.error(`Error processing row ${index}:`, row, error);
                     return null;
                 }
-            }).filter(row => row !== null);
+            }).filter(row => row && row.원본날짜);
             
             console.log('standardizedData:', standardizedData);
-
+            
             standardizedData.sort((a, b) => a.원본날짜 - b.원본날짜);
-
+            
             const newSheet = newWorkbook.addWorksheet(sheetName);
             newSheet.columns = [
                 { header: '날짜', key: '날짜', width: 12 },
@@ -413,13 +435,12 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                 { header: '수입', key: '수입', width: 12 },
                 { header: '지출', key: '지출', width: 12 }
             ];
-
+            
             standardizedData.forEach(row => {
                 delete row.원본날짜;
                 newSheet.addRow(row);
-                console.log('Added row:', row);
             });
-
+            
             newSheet.eachRow({ includeEmpty: false }, row => {
                 row.font = { size: 11 };
                 row.eachCell({ includeEmpty: false }, cell => {
@@ -428,6 +449,9 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                     }
                 });
             });
+            
+            
+            
         }
 
         const outputPath = path.join(__dirname, 'uploads', 'standardized.xlsx');
