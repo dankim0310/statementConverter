@@ -5,6 +5,9 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
+const chardet = require('chardet');
+const iconv = require('iconv-lite');
+const csvParser = require('csv-parser');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
@@ -280,6 +283,24 @@ function isThreeKoreanChars(text) {
     return koreanCharRegex.test(text);
 }
 
+function readCsvFile(filePath, callback) {
+    const results = [];
+    const encoding = chardet.detectFileSync(filePath);
+    console.log('Detected encoding (CSV):', encoding);
+    fs.createReadStream(filePath)
+        .pipe(iconv.decodeStream(encoding))
+        .pipe(csvParser())
+        .on('data', (data) => {
+            results.push(data);
+        })
+        .on('end', () => {
+            callback(null, results);
+        })
+        .on('error', (error) => {
+            callback(error, null);
+        });
+}
+
 async function checkHeaders(req, res, next) {
     const file = req.file;
     const bankType = req.body.bankType;
@@ -296,6 +317,19 @@ async function checkHeaders(req, res, next) {
             req.file.path = tempExcelPath;
         }
 
+        if (file.mimetype === 'text/csv' || path.extname(file.originalname).toLowerCase() === '.csv') {
+            readCsvFile(file.path, (error, results) => {
+                if (error) {
+                    console.error('CSV 파일 처리 중 오류 발생:', error);
+                    return res.status(500).json({ error: 'CSV 파일 처리 중 오류가 발생했습니다.' });
+                }
+                req.csvData = results;
+                req.bankInfo = bankHeaders[bankType][0]; // 국민은행의 경우 첫 번째 양식을 사용하도록 설정
+                next();
+            });
+            return; // CSV 처리 비동기 콜백에서 next() 호출하므로 여기서 return
+        }
+
         const workbook = xlsx.readFile(req.file.path);
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
@@ -303,7 +337,7 @@ async function checkHeaders(req, res, next) {
         console.log('파일 첫 10개 행:', data.slice(0, 10));
 
         let bankInfos = bankHeaders[bankType];
-        
+
         if (!bankInfos) {
             fs.unlinkSync(file.path);
             return res.status(400).json({ error: '지원되지 않는 은행 유형입니다.' });
@@ -362,12 +396,92 @@ async function checkHeaders(req, res, next) {
     }
 }
 
+
+
 app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
     const file = req.file;
     const bankType = req.body.bankType;
     const bankInfo = req.bankInfo;
 
     try {
+        if (file.mimetype === 'text/csv' || path.extname(file.originalname).toLowerCase() === '.csv') {
+            const data = req.csvData;
+            console.log('CSV 파일 데이터:', data.slice(0, 10));
+
+            // CSV 데이터를 표준화하고 처리하는 로직 추가
+            let headers = Object.keys(data[0]);
+            let mainData = data;
+
+            const standardizedData = mainData.map((row, index) => {
+                try {
+                    let 거래처 = row[bankInfo.mappings['거래처']];
+                    let 상세내역 = row[bankInfo.mappings['상세내역']] || ''; 
+            
+                    if (!isThreeKoreanChars(거래처) && !상세내역) {
+                        상세내역 = 거래처;
+                        거래처 = '';
+                    }
+            
+                    const 날짜 = new Date(row[bankInfo.mappings['날짜']]);
+            
+                    if (isNaN(날짜)) {
+                        console.log(`Invalid date at row ${index}:`, row);
+                        return null; 
+                    }
+                    const formattedDate = formatDate(날짜.toISOString());
+                    const 수입 = row[bankInfo.mappings['수입']];
+                    const 지출 = row[bankInfo.mappings['지출']];
+            
+                    if (formattedDate && (수입 || 지출)) {
+                        return {
+                            날짜: formattedDate,
+                            상세내역: 상세내역,
+                            거래처: isThreeKoreanChars(거래처) ? 거래처 : (!상세내역 ? '' : 거래처),
+                            항목분류: '',
+                            수입: 수입,
+                            지출: 지출,
+                            원본날짜: 날짜
+                        };
+                    } else {
+                        console.log(`Invalid data at row ${index}:`, row);
+                    }
+                } catch (error) {
+                    console.error(`Error processing row ${index}:`, row, error);
+                    return null;
+                }
+            }).filter(row => row && row.원본날짜);
+            
+            console.log('standardizedData:', standardizedData);
+            
+            standardizedData.sort((a, b) => a.원본날짜 - b.원본날짜);
+            
+            const newWorkbook = new ExcelJS.Workbook();
+            const newSheet = newWorkbook.addWorksheet('Sheet1');
+            newSheet.columns = [
+                { header: '날짜', key: '날짜', width: 12 },
+                { header: '상세내역', key: '상세내역', width: 24 },
+                { header: '거래처', key: '거래처', width: 16 },
+                { header: '항목분류', key: '항목분류', width: 12 },
+                { header: '수입', key: '수입', width: 12 },
+                { header: '지출', key: '지출', width: 12 }
+            ];
+            
+            standardizedData.forEach(row => {
+                delete row.원본날짜;
+                newSheet.addRow(row);
+            });
+            
+            const outputPath = path.join(__dirname, 'uploads', 'standardized.xlsx');
+            await newWorkbook.xlsx.writeFile(outputPath);
+
+            res.download(outputPath, 'standardized.xlsx', () => {
+                fs.unlinkSync(file.path);
+                fs.unlinkSync(outputPath);
+            });
+
+            return;
+        }
+
         const workbook = xlsx.readFile(file.path);
         const sheetNames = workbook.SheetNames;
         const newWorkbook = new ExcelJS.Workbook();
@@ -449,9 +563,6 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                     }
                 });
             });
-            
-            
-            
         }
 
         const outputPath = path.join(__dirname, 'uploads', 'standardized.xlsx');
@@ -467,6 +578,7 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
         res.status(500).json({ error: '파일 처리 중 오류가 발생했습니다.' });
     }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
