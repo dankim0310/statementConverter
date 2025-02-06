@@ -52,6 +52,16 @@ const bankHeaders = {
                 수입: '입금금액',
                 거래처: '거래기록사항'
             }
+        },
+        {
+            headerRow: 10,
+            expectedHeaders: ['거래일시', '출금금액',, '입금금액', '거래후잔액', ,,'거래내용', '거래기록사항', ,'거래점',, '이체메모'],
+            mappings: {
+                날짜: '거래일시',
+                지출: '출금금액',
+                수입: '입금금액',
+                거래처: '거래기록사항'
+            }
         }
     ],
     '국민은행': [
@@ -453,8 +463,9 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                         return null; 
                     }
                     const formattedDate = formatDate(날짜.toISOString());
-                    const 수입 = row[bankInfo.mappings['수입']];
-                    const 지출 = row[bankInfo.mappings['지출']];
+                    const 수입 = row[bankInfo.mappings['수입']] ? parseInt(row[bankInfo.mappings['수입']].replace(/[^0-9]/g, ''), 10) : 0;
+                    const 지출 = row[bankInfo.mappings['지출']] ? parseInt(row[bankInfo.mappings['지출']].replace(/[^0-9]/g, ''), 10) : 0;
+
             
                     if (formattedDate && (수입 || 지출)) {
                         return {
@@ -538,8 +549,9 @@ app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
                         return null; 
                     }
                     const formattedDate = formatDate(날짜.toISOString());
-                    const 수입 = row[headers.indexOf(bankInfo.mappings['수입'])];
-                    const 지출 = row[headers.indexOf(bankInfo.mappings['지출'])];
+                    const 수입 = row[headers.indexOf(bankInfo.mappings['수입'])] ? parseInt(row[headers.indexOf(bankInfo.mappings['수입'])].toString().replace(/[^0-9]/g, ''), 10) : 0;
+                    const 지출 = row[headers.indexOf(bankInfo.mappings['지출'])] ? parseInt(row[headers.indexOf(bankInfo.mappings['지출'])].toString().replace(/[^0-9]/g, ''), 10) : 0;
+
             
                     if (formattedDate && (수입 || 지출)) {
                         return {
