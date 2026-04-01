@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"name": "bank-statement-formatter",
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.exclude": {
+			"**/node_modules": true
+		},
+		"search.exclude": {
+			"**/node_modules": true
+		}
+	}
+}
