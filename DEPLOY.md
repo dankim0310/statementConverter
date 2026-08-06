@@ -36,16 +36,6 @@ location /statement/ {
 > If the UI is used at `/statement`, this preserves existing `fetch('/upload')` calls from the app
 > only when your proxy strips `/statement` before forwarding.
 
-Example with IIS reverse proxy:
-
-```xml
-<add name="BankStatementFormatter" path="statement/{*pathInfo}" verb="*" 
-     modules="AspNetCoreModuleV2" resourceType="Either" 
-     requireAccess="None" preCondition="bitness64" 
-     responseBufferLimit="4194304" 
-     />
-```
-
 If you prefer no path rewrite by proxy, the app also accepts `/statement/upload` directly.
 
 ## 3) GitHub Actions auto deploy
