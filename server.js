@@ -343,6 +343,8 @@ app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.use('/statement', express.static('public'));
+
 function formatDate(dateString) {
     const date = new Date(dateString);
     if (isNaN(date)) return null;
@@ -488,7 +490,7 @@ async function checkHeaders(req, res, next) {
 
 
 
-app.post('/upload', upload.single('file'), checkHeaders, async (req, res) => {
+app.post(['/upload', '/statement/upload'], upload.single('file'), checkHeaders, async (req, res) => {
     const file = req.file;
     const bankType = req.body.bankType;
     const bankInfo = req.bankInfo;
