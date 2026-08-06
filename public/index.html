@@ -134,10 +134,9 @@
 
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const uploadEndpoint = `${window.location.pathname.replace(/[^/]*$/, '')}upload`;
             const formData = new FormData(this);
             try {
-                const response = await fetch(uploadEndpoint, {
+                const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData,
                 });

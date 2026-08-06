@@ -1,7 +1,7 @@
 # Deployment guide for bank-statement-formatter
 
 This repo is managed separately from `med-acct-system` and uses PM2 on port `3020`.
-Public URL target is: `https://www.meditationcenter.net/statement/`
+Public URL target is: `https://www.meditationcenter.net/`
 
 ## 1) Server app startup (PM2)
 
@@ -21,10 +21,10 @@ pm2 stop bank-statement-formatter
 
 ## 2) Reverse proxy (example: nginx)
 
-`www.meditationcenter.net` should route `/statement/` to this app.
+`www.meditationcenter.net` should route `/` to this app.
 
 ```nginx
-location /statement/ {
+location / {
     proxy_pass http://127.0.0.1:3020/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -33,10 +33,7 @@ location /statement/ {
 }
 ```
 
-> If the UI is used at `/statement`, this preserves existing `fetch('/upload')` calls from the app
-> only when your proxy strips `/statement` before forwarding.
-
-If you prefer no path rewrite by proxy, the app also accepts `/statement/upload` directly.
+If you want to keep med-acct-system at `/`, move one app to another host/path and proxy only one at a time.
 
 ## 3) GitHub Actions auto deploy
 
