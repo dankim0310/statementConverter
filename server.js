@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const ExcelJS = require('exceljs');
@@ -265,8 +265,18 @@ const bankHeaders = {
                 거래처: '내용',
                 상세내역: '메모'
                 }
-        }
-
+        },
+        {
+            headerRow: 6, //7번째 행
+            expectedHeaders: ['거래일자', '거래시간', '적요', '출금(원)', '입금(원)', '내용', '잔액(원)', '거래점'],
+            mappings: {
+                날짜: '거래일자',
+                지출: '출금(원)',
+                수입: '입금(원)',
+                거래처: '적요',
+                상세내역: '내용'
+                }
+            },
     ],
     '새마을금고': {
         headerRow: 12, //13번째 행
@@ -667,3 +677,6 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
+
+
