@@ -134,9 +134,12 @@
 
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            const pathname = window.location.pathname;
+            const basePath = pathname === '/' ? '/' : (pathname.endsWith('/') ? pathname : pathname + '/');
+            const uploadEndpoint = `${basePath}upload`;
             const formData = new FormData(this);
             try {
-                const response = await fetch('/upload', {
+                const response = await fetch(uploadEndpoint, {
                     method: 'POST',
                     body: formData,
                 });
